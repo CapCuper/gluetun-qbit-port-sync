@@ -62,8 +62,10 @@ class QBittorrentClient:
                 timeout=10,
             )
             response_text = r.text.strip()
-            if response_text == "Ok.":
-                log.debug("Logged in to qBittorrent.")
+            # qBittorrent <5.x  → 200 + "Ok."
+            # qBittorrent ≥5.x  → 204 + empty body
+            if response_text == "Ok." or r.status_code == 204:
+                log.debug("Logged in to qBittorrent (status %s).", r.status_code)
                 return True
             # "Fails." means wrong credentials; anything else is likely CSRF/network
             if response_text == "Fails.":
