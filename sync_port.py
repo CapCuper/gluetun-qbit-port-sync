@@ -48,6 +48,11 @@ class QBittorrentClient:
         self.username = username
         self.password = password
         self.session  = requests.Session()
+        # qBittorrent 5.x requires these headers to pass CSRF protection
+        self.session.headers.update({
+            "Referer": self.host,
+            "Origin":  self.host,
+        })
 
     def login(self) -> bool:
         try:
@@ -56,10 +61,15 @@ class QBittorrentClient:
                 data={"username": self.username, "password": self.password},
                 timeout=10,
             )
-            if r.text.strip() == "Ok.":
+            response_text = r.text.strip()
+            if response_text == "Ok.":
                 log.debug("Logged in to qBittorrent.")
                 return True
-            log.error("qBittorrent login failed: %s", r.text.strip())
+            # "Fails." means wrong credentials; anything else is likely CSRF/network
+            if response_text == "Fails.":
+                log.error("qBittorrent login failed: wrong username or password.")
+            else:
+                log.error("qBittorrent login failed (status %s): %r", r.status_code, response_text)
         except requests.RequestException as e:
             log.error("Could not reach qBittorrent: %s", e)
         return False
